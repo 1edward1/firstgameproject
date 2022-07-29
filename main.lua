@@ -157,3 +157,9 @@ function love.draw()
 
     drawScore()
 end
+
+--[[
+    game tutorials: https://simplegametutorials.github.io/love/bird/
+    saving our score: https://www.youtube.com/watch?v=oWGe2UIRew4
+    creating the buttons and menu: https://www.youtube.com/watch?v=bxCvdtCdvhU
+--]]
