@@ -1,10 +1,11 @@
 function love.load()
     gameBackground = love.graphics.newImage("mountainlandscape.png")
-    plane = love.graphics.newImage("plane.png")
-    
-    birdX = 62
-    birdWidth = 38
-    birdHeight = 27
+    helicopter = love.graphics.newImage("helicopter.png")
+
+    helicopterWidth = 45
+    helicopterHeight = 27
+
+    helicopterX = 62
 
     playingAreaWidth = 300
     playingAreaHeight = 388
@@ -12,7 +13,9 @@ function love.load()
     pipeSpaceHeight = 100
     pipeWidth = 54
 
-    font = love.graphics.newFont(30)
+    fontScore = love.graphics.newFont(30)
+    fontTitle = love.graphics.newFont(20)
+    fontCommands = love.graphics.newFont(16)
 
     function newPipeSpaceY()
         local pipeSpaceYMin = 54
@@ -24,8 +27,8 @@ function love.load()
     end
 
     function reset()
-        birdY = 200
-        birdYSpeed = 0
+        helicopterY = 200
+        helicopterYSpeed = 0
 
         pipe1X = playingAreaWidth
         pipe1SpaceY = newPipeSpaceY()
@@ -38,77 +41,92 @@ function love.load()
         upcomingPipe = 1
     end
 
+    gameState = 'start'
     reset()
 end
 
 function love.update(dt)
-    birdYSpeed = birdYSpeed + (516 * dt)
-    birdY = birdY + (birdYSpeed * dt)
+    if gameState == 'play' then
+        helicopterYSpeed = helicopterYSpeed + (516 * dt)
+        helicopterY = helicopterY + (helicopterYSpeed * dt)
 
-    local function movePipe(pipeX, pipeSpaceY)
-        pipeX = pipeX - (60 * dt)
+        local function movePipe(pipeX, pipeSpaceY)
+            pipeX = pipeX - (60 * dt)
 
-        if (pipeX + pipeWidth) < 0 then
-            pipeX = playingAreaWidth
-            pipeSpaceY = newPipeSpaceY()
+            if (pipeX + pipeWidth) < 0 then
+                pipeX = playingAreaWidth
+                pipeSpaceY = newPipeSpaceY()
+            end
+
+            return pipeX, pipeSpaceY
         end
 
-        return pipeX, pipeSpaceY
+        pipe1X, pipe1SpaceY = movePipe(pipe1X, pipe1SpaceY)
+        pipe2X, pipe2SpaceY = movePipe(pipe2X, pipe2SpaceY)
+
+        function isHelicopterCollidingWithPipe(pipeX, pipeSpaceY)
+            return
+            -- Left edge of bird is to the left of the right edge of pipe
+            helicopterX < (pipeX + pipeWidth)
+            and
+            -- Right edge of bird is to the right of the left edge of pipe
+            (helicopterX + helicopterWidth) > pipeX
+            and (
+                -- Top edge of bird is above the bottom edge of first pipe segment
+                helicopterY < pipeSpaceY
+                or
+                -- Bottom edge of bird is below the top edge of second pipe segment
+                (helicopterY + helicopterHeight) > (pipeSpaceY + pipeSpaceHeight)
+            )
+        end
+
+        if isHelicopterCollidingWithPipe(pipe1X, pipe1SpaceY)
+        or isHelicopterCollidingWithPipe(pipe2X, pipe2SpaceY)
+        or helicopterY > playingAreaHeight then
+            sound = love.audio.newSource("failsound.wav", "static")
+            sound:play()
+            reset()
+            love.load()
+            gameState = 'start'
+        end
+
+        local function updateScoreAndClosestPipe(thisPipe, pipeX, otherPipe)
+            if upcomingPipe == thisPipe
+            and (helicopterX > (pipeX + pipeWidth)) then
+                score = score + 1
+                upcomingPipe = otherPipe
+                sound = love.audio.newSource("coinsound.wav", "static")
+                sound:play()
+            end
+        end
+
+        updateScoreAndClosestPipe(1, pipe1X, 2)
+        updateScoreAndClosestPipe(2, pipe2X, 1)
     end
+end
 
-    pipe1X, pipe1SpaceY = movePipe(pipe1X, pipe1SpaceY)
-    pipe2X, pipe2SpaceY = movePipe(pipe2X, pipe2SpaceY)
-
-    function isBirdCollidingWithPipe(pipeX, pipeSpaceY)
-        return
-        -- Left edge of bird is to the left of the right edge of pipe
-        birdX < (pipeX + pipeWidth)
-        and
-         -- Right edge of bird is to the right of the left edge of pipe
-        (birdX + birdWidth) > pipeX
-        and (
-            -- Top edge of bird is above the bottom edge of first pipe segment
-            birdY < pipeSpaceY
-            or
-            -- Bottom edge of bird is below the top edge of second pipe segment
-            (birdY + birdHeight) > (pipeSpaceY + pipeSpaceHeight)
-        )
-    end
-
-    if isBirdCollidingWithPipe(pipe1X, pipe1SpaceY)
-    or isBirdCollidingWithPipe(pipe2X, pipe2SpaceY)
-    or birdY > playingAreaHeight then
-        sound = love.audio.newSource("failsound.wav", "static")
-        sound:play()
-        reset()
-    end
-
-    local function updateScoreAndClosestPipe(thisPipe, pipeX, otherPipe)
-        if upcomingPipe == thisPipe
-        and (birdX > (pipeX + pipeWidth)) then
-            score = score + 1
-            upcomingPipe = otherPipe
-            sound = love.audio.newSource("coinsound.wav", "static")
+function love.keypressed(key)
+    if key == "space" and gameState == 'play' then
+        if helicopterY > 0 then
+            helicopterYSpeed = -165
+            sound = love.audio.newSource("playerjump.wav", "static")
             sound:play()
         end
     end
 
-    updateScoreAndClosestPipe(1, pipe1X, 2)
-    updateScoreAndClosestPipe(2, pipe2X, 1)
-end
+    if key == "escape" then
+        love.event.quit()
 
-function love.keypressed(key)
-    if birdY > 0 then
-        birdYSpeed = -165
-        sound = love.audio.newSource("playerjump.wav", "static")
-        sound:play()
+    elseif key == 'enter' or key =='return' then
+        if gameState == 'start' then
+            gameState = 'play'
+        end
     end
-
 end
 
 function love.draw()
     love.graphics.draw(gameBackground, 0, 0)
-    love.graphics.draw(plane, birdX, birdY, 0, .75, .75, birdWidth, birdHeight)
+    love.graphics.draw(helicopter, helicopterX, helicopterY, 0, .75, .75, helicopterWidth / 2, helicopterHeight / 2)
 
 
     local function drawPipe(pipeX, pipeSpaceY)
@@ -150,16 +168,40 @@ function love.draw()
     drawPipe(pipe2X, pipe2SpaceY)
 
     local function drawScore()
-        love.graphics.setFont(font)
+        love.graphics.setFont(fontScore)
         love.graphics.setColor(1, 1, 1)
         love.graphics.print(score, 15, 15)
     end
 
     drawScore()
-end
 
---[[
-    game tutorials: https://simplegametutorials.github.io/love/bird/
-    saving our score: https://www.youtube.com/watch?v=oWGe2UIRew4
-    creating the buttons and menu: https://www.youtube.com/watch?v=bxCvdtCdvhU
---]]
+    local function drawStartMenu()
+        love.graphics.draw(gameBackground, 0, 0)
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.rectangle('fill', 0, 40, 300, 70)
+        love.graphics.setColor(0, 0, 0)
+        love.graphics.rectangle('line', 0, 40, 300, 70)
+        love.graphics.setColor(0, 0, 0)
+        love.graphics.rectangle('line', 50, 210, 200, 100)
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.rectangle('fill', 50, 210, 200, 100)
+        
+    end
+    
+    
+    local function drawText()
+        love.graphics.setColor(0, 0, 0)
+        love.graphics.setFont(fontTitle)
+        love.graphics.print("It's A Chopper, Baby!", 45, 65)
+        love.graphics.setFont(fontCommands)
+        love.graphics.print("Try to dodge the pipes", 65, 220)
+        love.graphics.print("Press 'enter' to start", 65, 250)
+        love.graphics.print("Press 'space' to jump", 65, 280)
+
+    end
+
+    if gameState == 'start' then
+        drawStartMenu()
+        drawText()
+    end
+end
